@@ -1,0 +1,70 @@
+@font-face {
+    font-family: "Druk Wide Bold";
+    src: url("https://db.onlinewebfonts.com/t/2206d6cc490084998d531e8c1b2cbb4a.eot");
+    src: url("https://db.onlinewebfonts.com/t/2206d6cc490084998d531e8c1b2cbb4a.eot?#iefix")format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/2206d6cc490084998d531e8c1b2cbb4a.woff2")format("woff2"),
+    url("https://db.onlinewebfonts.com/t/2206d6cc490084998d531e8c1b2cbb4a.woff")format("woff"),
+    url("https://db.onlinewebfonts.com/t/2206d6cc490084998d531e8c1b2cbb4a.ttf")format("truetype"),
+    url("https://db.onlinewebfonts.com/t/2206d6cc490084998d531e8c1b2cbb4a.svg#Druk Wide Bold")format("svg");
+}
+
+ pre {
+        text-align: center;
+        color:green
+        }
+        h1 {text-align: center;
+            color:purple;
+          font-family: "Druk Wide Bold";
+        }
+        h2 {text-align: center;
+        color:purple;
+         font-family: "Druk Wide Bold";
+        }
+        h3 {text-align: center;
+        color:purple;
+         font-family: "Druk Wide Bold";
+        }
+        h7 {text-align: center;
+            color:black;
+          font-family: "Druk Wide Bold";
+        }
+        div {text-align: center;
+        color:white;
+         font-family: "Druk Wide Bold";
+        }
+        .navbar ul{
+    list-style-type: none;
+    background-color: hsl(0, 0%, 25%);
+    padding: 0px;
+    margin: 0px;
+    overflow: hidden;
+    font-family: "Druk Wide Bold";
+}
+.navbar a{
+    color: white;
+    text-decoration: none;
+    padding: 15px;
+    display: block;
+    text-align: center;
+    font-family: "Druk Wide Bold";
+}
+.navbar li{
+    float: left;
+    font-family: "Druk Wide Bold";
+}
+img {text-align: center;
+            color:white;
+          font-family: "Druk Wide Bold";
+}
+a {
+        text-align: center;
+        color:purple;
+        font-family: "Druk Wide Bold";
+        }
+        
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 50%;
+}

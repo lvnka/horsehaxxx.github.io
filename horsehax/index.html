@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>horsehax_hvh_minigame</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            cursor: none;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+        .scrolling-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            font-size: 40px;
+            font-weight: bold;
+            padding: 5px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            z-index: 999;
+        }
+        .scrolling-text {
+            display: inline-block;
+            animation: scrollText 20s linear infinite;
+            padding-left: 100%;
+        }
+        @keyframes scrollText {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #cursor {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            width: 32px;
+            height: 32px;
+        }
+        .hidden-gif {
+            display: none;
+            position: absolute;
+            pointer-events: none; /* Allow clicks to pass through */
+            z-index: 1;
+            image-rendering: pixelated;
+        }
+        
+        /* Add death animation speed control */
+        img[src="death.gif"] {
+            animation-duration: 40%; /* Make death animation 40% slower */
+        }
+        .victory-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff00;
+            font-size: 33.6px; /* 5% bigger */
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            z-index: 1001;
+        }
+        .button {
+            position: absolute;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            display: none;
+            z-index: 1001;
+        }
+        #playAgainBtn {
+            bottom: 20px;
+            right: 20px;
+            transform: none;
+        }
+        #claimBtn {
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #claimImage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.1);
+            opacity: 0;
+            z-index: 1002;
+            width: 40%;
+            max-width: 500px;
+            transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+        }
+        
+        #claimImage.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+        
+        /* Killfeed styles */
+        .killfeed-container {
+            position: fixed;
+            top: 60px; /* Below the scrolling banner */
+            right: 0; /* Align to right edge */
+            width: 600px; /* Much larger width */
+            height: 100vh; /* Full height container */
+            z-index: 998;
+            pointer-events: none;
+            overflow: hidden; /* Prevent overflow */
+        }
+        
+        .killfeed-notification {
+            position: absolute;
+            right: 0;
+            background-image: url('killfeed.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            width: 1000px; /* Much larger width */
+            height: 400px; /* Much larger height (1.5x) */
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="scrolling-banner">
+        <div class="scrolling-text">PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM PROPERTY OF HORSEHAX.COM</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <img id="cursor" src="crosshair.png">
+
+    <div id="victoryText" class="victory-text">CONGRATS!!! YOU JUST WON HORSEHAX SUBSCRIPTION</div>
+    <button id="playAgainBtn" class="button">PLAY AGAIN</button>
+    <button id="claimBtn" class="button">CLAIM YOUR SUBSCRIPTION</button>
+    <img id="claimImage" src="claim.png">
+    
+    <!-- Killfeed container -->
+    <div id="killfeedContainer" class="killfeed-container"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const cursor = document.getElementById('cursor');
+        const victoryText = document.getElementById('victoryText');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Animation frame management
+        const frameRate = 60;
+        let lastFrameTime = 0;
+        const animationSpeed = 1000 / 12; // 12 frames per second for GIFs
+
+        // Load images with animation support
+        const images = {
+            horse: {
+                element: new Image(),
+                lastUpdate: 0,
+                frameCount: 0,
+                domElement: document.createElement('img')
+            },
+            esp: {
+                element: new Image(),
+                static: true
+            },
+            death: {
+                element: new Image(),
+                lastUpdate: 0,
+                frameCount: 0,
+                domElement: document.createElement('img')
+            },
+            spinning: {
+                element: new Image(),
+                lastUpdate: 0,
+                frameCount: 0,
+                domElement: document.createElement('img')
+            },
+            killfeed: {
+                element: new Image(),
+                static: true
+            },
+            eg: {
+                element: new Image(),
+                static: true
+            }
+        };
+
+        // Set image rendering properties
+        Object.values(images).forEach(img => {
+            img.element.style.imageRendering = 'pixelated';
+            if (!img.static) {
+                img.element.style.animationPlayState = 'running';
+            }
+        });
+
+        // Track loaded images
+        let loadedImages = 0;
+        const totalImages = 6;
+
+        function startGameWhenReady() {
+            loadedImages++;
+            if (loadedImages === totalImages) {
+                gameLoop();
+            }
+        }
+
+        images.horse.element.onload = startGameWhenReady;
+        images.esp.element.onload = startGameWhenReady;
+        images.death.element.onload = startGameWhenReady;
+        images.spinning.element.onload = startGameWhenReady;
+        images.killfeed.element.onload = startGameWhenReady;
+        images.eg.element.onload = startGameWhenReady;
+
+        // Load static image for canvas drawing
+        images.horse.element.src = 'horse-running.gif';
+        images.esp.element.src = 'esp.png'; // ESP is static, no need to append or hide
+        images.death.element.src = 'death.gif';
+        images.spinning.element.src = 'horse-spinning.gif';
+        images.killfeed.element.src = 'killfeed.png';
+        images.eg.element.src = 'EG.png';
+        
+        // Set up DOM elements for actual animation
+        images.horse.domElement.src = 'horse-running.gif';
+        images.horse.domElement.classList.add('hidden-gif');
+        document.body.appendChild(images.horse.domElement);
+        
+        images.death.domElement.src = 'death.gif';
+        images.death.domElement.classList.add('hidden-gif');
+        document.body.appendChild(images.death.domElement);
+        
+        images.spinning.domElement.src = 'horse-spinning.gif';
+        images.spinning.domElement.classList.add('hidden-gif');
+        document.body.appendChild(images.spinning.domElement);
+
+        // Custom cursor
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.display = 'block';
+            cursor.style.left = (e.pageX - cursor.width / 2) + 'px';
+            cursor.style.top = (e.pageY - cursor.height / 2) + 'px';
+        });
+
+        // Target class
+        class Target {
+            constructor(isSpecial = false, specialX = null, specialY = null, isEGTarget = false) {
+                this.width = 105; // 5% bigger
+                this.height = 105; // 5% bigger
+                this.isSpecial = isSpecial;
+                this.isEGTarget = isEGTarget;
+                
+                if (isEGTarget) {
+                    // EG target with fixed position (invisible except for ESP)
+                    this.x = canvas.width * 0.85; // Right side
+                    this.y = canvas.height * 0.23; // Top
+                    this.speed = 0; // EG target doesn't move
+                    this.direction = 1;
+                    this.showHorse = false; // Don't show the horse image for EG target
+                } else if (isSpecial) {
+                    // Special target with fixed position
+                    this.x = specialX || (canvas.width * 0.85); // Default to right side if not specified
+                    this.y = specialY || (canvas.height * 0.15); // Default to top if not specified
+                    this.speed = 0; // Special target doesn't move
+                    this.direction = 1;
+                    this.showHorse = true;
+                } else {
+                    // Regular target with random position
+                    this.y = 100 + Math.random() * (canvas.height - 400); // Expanded spawn area by 100px towards top
+                    this.x = Math.random() * (canvas.width - this.width);
+                    this.speed = 2 + Math.random() * 2;
+                    this.direction = Math.random() > 0.5 ? 1 : -1;
+                    this.showHorse = true;
+                }
+                
+                this.alive = true;
+                this.deathTimer = 0;
+                this.playingDeath = false;
+                
+                // Create unique DOM elements for this target
+                this.horseElement = document.createElement('img');
+                this.horseElement.src = 'horse-running.gif';
+                this.horseElement.classList.add('hidden-gif');
+                document.body.appendChild(this.horseElement);
+                
+                this.deathElement = document.createElement('img');
+                this.deathElement.src = 'death.gif';
+                this.deathElement.classList.add('hidden-gif');
+                document.body.appendChild(this.deathElement);
+            }
+
+            update() {
+                if (this.alive) {
+                    this.x += this.speed * this.direction;
+                    if (this.x <= 0 || this.x >= canvas.width - this.width) {
+                        this.direction *= -1;
+                    }
+                } else if (this.playingDeath) {
+                    this.deathTimer++;
+                    if (this.deathTimer > 30) { // Approximately 0.5 seconds at 60fps
+                        this.playingDeath = false;
+                    }
+                }
+            }
+
+            draw(currentTime) {
+                if (this.alive) {
+                    // For EG target, only show ESP overlay, not the horse
+                    if (this.showHorse) {
+                        // Position the animated horse GIF
+                        this.horseElement.style.display = 'block';
+                        this.horseElement.style.position = 'absolute';
+                        this.horseElement.style.left = this.x + 'px';
+                        this.horseElement.style.top = this.y + 'px';
+                        this.horseElement.style.width = this.width + 'px';
+                        this.horseElement.style.height = this.height + 'px';
+                        this.horseElement.style.zIndex = '1';
+                    } else {
+                        // Hide horse for EG target
+                        this.horseElement.style.display = 'none';
+                    }
+                    
+                    // Draw ESP slightly larger and wider in front of target (still using canvas for static image)
+                    const espWidth = this.width * 1.4; // Made wider
+                    const espHeight = this.height * 1.2;
+                    const espX = this.x + (this.width - espWidth) / 2;
+                    const espY = this.y + (this.height - espHeight) / 2;
+                    ctx.drawImage(images.esp.element, espX, espY, espWidth, espHeight);
+                } else if (this.playingDeath) {
+                    // Hide the horse GIF
+                    this.horseElement.style.display = 'none';
+                    
+                    // Position the death GIF with 20% larger size
+                    const deathWidth = this.width * 1.2;
+                    const deathHeight = this.height * 1.2;
+                    // Adjust position to keep it centered on the original target position
+                    const deathX = this.x - (deathWidth - this.width) / 2;
+                    const deathY = this.y - (deathHeight - this.height) / 2;
+                    
+                    this.deathElement.style.display = 'block';
+                    this.deathElement.style.position = 'absolute';
+                    this.deathElement.style.left = deathX + 'px';
+                    this.deathElement.style.top = deathY + 'px';
+                    this.deathElement.style.width = deathWidth + 'px';
+                    this.deathElement.style.height = deathHeight + 'px';
+                    this.deathElement.style.zIndex = '1';
+                } else {
+                    // Hide both GIFs when not alive and not playing death animation
+                    this.horseElement.style.display = 'none';
+                    this.deathElement.style.display = 'none';
+                }
+            }
+
+            checkClick(x, y) {
+                return this.alive &&
+                    x >= this.x && x <= this.x + this.width &&
+                    y >= this.y && y <= this.y + this.height;
+            }
+        }
+
+        // Game state
+        let targets = [];
+        let gameWon = false;
+        let gameOverTimer = 0;
+        let showingVictory = false;
+        
+        // Killfeed system
+        const killfeedContainer = document.getElementById('killfeedContainer');
+        const maxKillfeedItems = 5; // Maximum number of killfeed items to show at once
+        const killfeedHeight = 255; // Height of each killfeed notification
+        const killfeedSpacing = -222; // Complete overlap (same as killfeedHeight for perfect stacking)
+        let activeKillfeeds = []; // Track active killfeed notifications
+        
+        function addKillfeedNotification(isEGTarget = false) {
+            // Create a new killfeed notification
+            const notification = document.createElement('div');
+            notification.className = 'killfeed-notification';
+            
+            // Use different background image for EG target
+            if (isEGTarget) {
+                notification.style.backgroundImage = 'url("EG.png")';
+            } else {
+                notification.style.backgroundImage = 'url("killfeed.png")';
+            }
+            
+            // Calculate position based on existing notifications
+            const topPosition = activeKillfeeds.length * (killfeedHeight + killfeedSpacing);
+            notification.style.top = topPosition + 'px';
+            
+            // Add to container and track in our array
+            killfeedContainer.appendChild(notification);
+            activeKillfeeds.push(notification);
+            
+            // Trigger reflow before adding the show class for proper animation
+            notification.offsetHeight;
+            notification.style.opacity = '1';
+            notification.style.transform = 'translateX(0)';
+            
+            // Remove notification after 5 seconds (increased from 4)
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(50px)';
+                
+                // Remove from DOM after fade out animation completes
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                        // Remove from our tracking array
+                        const index = activeKillfeeds.indexOf(notification);
+                        if (index > -1) {
+                            activeKillfeeds.splice(index, 1);
+                        }
+                        // Reposition remaining notifications
+                        repositionKillfeeds();
+                    }
+                }, 300);
+            }, 5000);
+            
+            // Remove oldest notification if we exceed the maximum
+            if (activeKillfeeds.length > maxKillfeedItems) {
+                const oldestNotification = activeKillfeeds[0];
+                oldestNotification.style.opacity = '0';
+                oldestNotification.style.transform = 'translateX(50px)';
+                
+                setTimeout(() => {
+                    if (oldestNotification.parentNode) {
+                        oldestNotification.parentNode.removeChild(oldestNotification);
+                        // Remove from our tracking array
+                        activeKillfeeds.shift();
+                        // Reposition remaining notifications
+                        repositionKillfeeds();
+                    }
+                }, 300);
+            }
+        }
+        
+        // Function to reposition all killfeed notifications after one is removed
+        function repositionKillfeeds() {
+            activeKillfeeds.forEach((notification, index) => {
+                const topPosition = index * (killfeedHeight + killfeedSpacing);
+                notification.style.top = topPosition + 'px';
+            });
+        }
+
+
+        // Initialize targets
+        for (let i = 0; i < 7; i++) {
+            targets.push(new Target());
+        }
+        
+        // Add the special EG target (invisible except for ESP)
+        targets.push(new Target(false, null, null, true));
+
+        // Click handler
+        canvas.addEventListener('click', (e) => {
+            if (gameWon) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            targets.forEach(target => {
+                if (target.checkClick(x, y)) {
+                    target.alive = false;
+                    target.playingDeath = true;
+                    
+                    // Add killfeed notification when target is eliminated
+                    // Pass isEGTarget flag to show different killfeed image
+                    addKillfeedNotification(target.isEGTarget);
+                }
+            });
+
+            // Check win condition
+            if (targets.every(target => !target.alive)) {
+                gameWon = true;
+            }
+        });
+
+        // Get button elements
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        const claimBtn = document.getElementById('claimBtn');
+        const claimImage = document.getElementById('claimImage');
+        
+
+        
+        // Play Again button click handler
+        playAgainBtn.addEventListener('click', () => {
+            // Reset game state
+            gameWon = false;
+            gameOverTimer = 0;
+            showingVictory = false;
+            
+            // Clear all killfeed notifications
+            while (killfeedContainer.firstChild) {
+                killfeedContainer.removeChild(killfeedContainer.firstChild);
+            }
+            // Reset active killfeeds array
+            activeKillfeeds = [];
+            
+            // Hide victory elements
+            victoryText.style.display = 'none';
+            playAgainBtn.style.display = 'none';
+            claimBtn.style.display = 'none';
+            claimImage.classList.remove('show');
+            // Small delay before hiding to allow transition to complete
+            setTimeout(() => {
+                claimImage.style.display = 'none';
+            }, 800);
+            
+            // Remove old targets
+            targets.forEach(target => {
+                document.body.removeChild(target.horseElement);
+                document.body.removeChild(target.deathElement);
+            });
+            
+            // Create new targets
+            targets = [];
+            for (let i = 0; i < 7; i++) {
+                targets.push(new Target());
+            }
+            
+            // Add the special EG target again
+            targets.push(new Target(false, null, null, true));
+        });
+        
+        // Claim button click handler
+        claimBtn.addEventListener('click', () => {
+            claimImage.style.display = 'block';
+            // Small delay to ensure display:block is applied before adding the class
+            setTimeout(() => {
+                claimImage.classList.add('show');
+            }, 10);
+        });
+        
+        // Game loop
+        function gameLoop(currentTime) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameWon) {
+                gameOverTimer++;
+                if (gameOverTimer <= 60) { // Show death.gif for 1 second
+                    // Hide all other animations
+                    targets.forEach(target => {
+                        target.horseElement.style.display = 'none';
+                        target.deathElement.style.display = 'none';
+                    });
+                    images.spinning.domElement.style.display = 'none';
+                    
+                    // Show full-screen death animation
+                    images.death.domElement.style.display = 'block';
+                    images.death.domElement.style.position = 'absolute';
+                    images.death.domElement.style.left = '0';
+                    images.death.domElement.style.top = '0';
+                    images.death.domElement.style.width = canvas.width + 'px';
+                    images.death.domElement.style.height = canvas.height + 'px';
+                    images.death.domElement.style.zIndex = '2';
+                } else if (!showingVictory) {
+                    // Hide death animation
+                    images.death.domElement.style.display = 'none';
+                    showingVictory = true;
+                    victoryText.style.display = 'block';
+                    playAgainBtn.style.display = 'block';
+                    claimBtn.style.display = 'block';
+                }
+            } else {
+                // Update and draw targets
+                targets.forEach(target => {
+                    target.update();
+                    target.draw(currentTime);
+                });
+
+                // Position spinning horse at bottom-middle
+                const spinningHorseSize = 165; // 10% bigger
+                images.spinning.domElement.style.display = 'block';
+                images.spinning.domElement.style.position = 'absolute';
+                images.spinning.domElement.style.left = (canvas.width/2 - spinningHorseSize/2) + 'px';
+                images.spinning.domElement.style.top = (canvas.height - spinningHorseSize - 20) + 'px';
+                images.spinning.domElement.style.width = spinningHorseSize + 'px';
+                images.spinning.domElement.style.height = spinningHorseSize + 'px';
+                images.spinning.domElement.style.zIndex = '1';
+                
+                // Draw ESP for spinning horse (using the same approach as targets)
+                const spinningEspWidth = spinningHorseSize * 1.3;
+                const spinningEspHeight = spinningHorseSize * 1.1;
+                const spinningEspX = (canvas.width/2 - spinningHorseSize/2) + (spinningHorseSize - spinningEspWidth) / 2;
+                const spinningEspY = (canvas.height - spinningHorseSize - 20) + (spinningHorseSize - spinningEspHeight) / 2;
+                ctx.drawImage(images.esp.element, spinningEspX, spinningEspY, spinningEspWidth, spinningEspHeight);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Game will start automatically when all images are loaded
+    </script>
+</body>
+</html>
